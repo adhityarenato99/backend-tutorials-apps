@@ -1,13 +1,78 @@
 import express, { Request, Response } from 'express'
 import { Tutorial } from '../models/TutorialModel'
 import Sequelize from 'sequelize'
+import { Op } from 'sequelize'
+
+// interface Query {
+//   page: string;
+//   limit: string;
+//   search: string;
+//   offset: string;
+//   totalRows: string;
+//   totalPage: string
+// }
 
 export const getTutorials = async (req: Request, res: Response) => {
+  const { query } = req
+
+  const page: any = parseInt(req.query.page as any) || 0
+  // console.log(`page : ` + page)
+  const limit: any = parseInt(req.query.limit as any) || 0
+  // console.log(`limits : ` + limit)
+  const search =
+    typeof query.search_query === 'string' ? query.search_query : ''
+  // console.log(`search : ` + search)
+  const offset: number = limit * page
+  // console.log(`offset : ` + offset)
+
+  const totalRows: number = await Tutorial.count({
+    where: {
+      [Op.or]: [
+        {
+          title: {
+            [Op.like]: '%' + search + '%'
+          },
+          description: {
+            [Op.like]: '%' + search + '%'
+          }
+        }
+      ]
+    }
+  })
+
+  // console.log(`total rows : ` + totalRows)
+
+  const totalPage: number = Math.ceil(totalRows / limit)
+
+  // console.log(`total page : ` + totalPage)
+
   try {
-    const AllTutorials: Tutorial[] = await Tutorial.findAll()
-    return res.status(200).json({
-      message: 'Success request data',
-      result: AllTutorials
+    const AllTutorials: Tutorial[] = await Tutorial.findAll({
+      where: {
+        [Op.or]: [
+          {
+            title: {
+              [Op.like]: '%' + search + '%'
+            },
+            description: {
+              [Op.like]: '%' + search + '%'
+            }
+          }
+        ]
+      },
+      offset: offset,
+      limit: limit,
+      order: [['id', 'DESC']]
+    })
+    // console.log(AllTutorials);
+
+    res.status(200).json({
+      message: 'success',
+      result: AllTutorials,
+      page: page,
+      limit: limit,
+      totalRows: totalRows,
+      totalPage: totalPage
     })
   } catch (err) {
     res.status(500).json({
@@ -59,18 +124,18 @@ export const updateTutorial = async (req: Request, res: Response) => {
 }
 
 export const deleteTutorial = async (req: Request, res: Response) => {
-    const { id } = req.params;
-    try {
-        const deleteTutorial: Tutorial | null = await Tutorial.findByPk(id);
-        await Tutorial.destroy({ where: { id } });
+  const { id } = req.params
+  try {
+    const deleteTutorial: Tutorial | null = await Tutorial.findByPk(id)
+    await Tutorial.destroy({ where: { id } })
 
-        return res.status(200).json({
-            message: 'Tutorial successful deleted!',
-            result: deleteTutorial
-        })
-    } catch (error) {
-        res.json({
-            message: 'Error delete tutorial!'
-        })
-    }
+    return res.status(200).json({
+      message: 'Tutorial successful deleted!',
+      result: deleteTutorial
+    })
+  } catch (error) {
+    res.json({
+      message: 'Error delete tutorial!'
+    })
+  }
 }
